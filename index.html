@@ -55,10 +55,25 @@
     </header>
 
     <main>
-      <p>CMD + V to paste your HTML and get Markdown in return!</p>
+      <p class="drop">CMD + V to paste your HTML and get Markdown in return!</p>
       <div id="paste" contenteditable="true" spellcheck="false">Paste</div>
+      <p class="help">
+        <a href="/?cleanup=no">Disable cleanup</a> - Made by Adriaan
+      </p>
       <textarea id="markdown" spellcheck="false"></textarea>
     </main>
+
+    <script>
+      (() => {
+        // If query param cleanup=no, replace the link in p.help
+        const search = new URLSearchParams(location.search);
+        if (search.get("cleanup") === "no") {
+          search.set("cleanup", "yes");
+          document.querySelector(".help a").href = `/?${search.toString()}`;
+          document.querySelector(".help a").textContent = "Enable cleanup";
+        }
+      })();
+    </script>
 
     <a
       id="badge"
@@ -88,74 +103,5 @@
     </noscript>
   </body>
 
-  <script>
-    const pasteElement = document.getElementById("paste");
-    const markdownElement = document.getElementById("markdown");
-
-    const turndownOptions = {
-      headingStyle: "atx",
-      bulletListMarker: "-",
-      codeBlockStyle: "fenced",
-      fence: "```",
-      emDelimiter: "_",
-      strongDelimiter: "**",
-      linkStyle: "inlined",
-      linkReferenceStyle: "full",
-    };
-
-    const gfm = turndownPluginGfm.gfm;
-    const turndownService = new TurndownService(turndownOptions);
-    turndownService.use(gfm);
-
-    document.addEventListener("keydown", (event) => {
-      if (event.ctrlKey || event.metaKey) {
-        if (String.fromCharCode(event.which).toLowerCase() === "v") {
-          pasteElement.innerHTML = "";
-          pasteElement.focus();
-        }
-      }
-    });
-
-    pasteElement.addEventListener("paste", (event) => {
-      setTimeout(() => {
-        const html = pasteElement.innerHTML.replace(
-          /(<span style="[^"]*font-weight:[ ]*(?:bold|[6-9]00)[^"]*">)(.*?)(<\/span>)/gi,
-          "$1<strong>$2</strong>$3"
-        );
-
-        let markdown = turndownService.turndown(html);
-
-        const lines = markdown.split("\n");
-
-        // Remove empty lines
-        markdown = lines.map((line) => line.trim()).join("\n");
-
-        // Remove double line breaks
-        markdown = markdown.replace(/\n\n(\n)+/g, "\n\n");
-
-        // Remove new lines between list items
-        markdown = markdown.replace(/(\n)+(\s)*(-|\*)(\s)/g, "\n$2$3$4");
-
-        // Add new line on top of list
-        markdown = markdown.replace(/(:)(\n)+(-|\*)(\s)/g, "$1\n\n$3$4");
-
-        // Remove new lines from start and end
-        markdown = markdown.trim();
-
-        markdownElement.style.display = "block";
-        markdownElement.innerHTML = markdown + "\n";
-
-        markdownElement.focus();
-        markdownElement.select();
-
-        console.log("html:");
-        console.log(html);
-        console.log();
-        console.log("markdown:");
-        console.log(markdown);
-
-        document.body.classList.add("has-markdown");
-      }, 250);
-    });
-  </script>
+  <script src="/app.js"></script>
 </html>

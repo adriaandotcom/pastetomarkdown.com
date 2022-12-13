@@ -105,12 +105,20 @@ article {
   padding: 0 1rem 1rem 1rem;
 }
 
-main p {
+main p.drop {
   border-radius: 20px;
   border: 2px dashed var(--link-color);
   padding: 40px;
   align-self: center;
 }
+main p.help {
+  opacity: 0.8;
+  margin-bottom: 0;
+  font-size: 0.8rem;
+  color: var(--link-color);
+  align-self: center;
+}
+
 body.has-markdown main p {
   display: none;
 }
