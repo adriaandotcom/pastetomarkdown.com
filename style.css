@@ -111,6 +111,9 @@ main p.drop {
   padding: 40px;
   align-self: center;
 }
+main p.drop.active {
+  border: 2px dashed var(--logo-color);
+}
 main p.help {
   opacity: 0.8;
   margin-bottom: 0;
