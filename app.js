@@ -1,7 +1,7 @@
 (() => {
   const pasteElement = document.getElementById("paste");
   const markdownElement = document.getElementById("markdown");
-  const listRegex = /^(\s)*((\d+\.)(\s)|(-|\*))/;
+  const listRegex = /^(\s)*((\d+\.)(\s)|(-|\*)|(\[\^(\d|[a-z0-9-_])+\]:))/;
 
   const search = new URLSearchParams(location.search);
   const cleanup = search.get("cleanup") !== "no";
@@ -32,8 +32,22 @@
 
   pasteElement.addEventListener("paste", (event) => {
     setTimeout(() => {
+      const htmlText = pasteElement.textContent.trim();
+
+      // Create a regex to check if text starts with <html> or <!DOCTYPE html>
+      const regex = /^(\<\!DOCTYPE\ html\>|\<html\>)/;
+
+      if (regex.test(htmlText)) {
+        const match = htmlText.match(
+          /<body[^>]*>([^<]*(?:(?!<\/?body)<[^<]*)*)<\/body\s*>/i
+        );
+        if (match[1]) pasteElement.innerHTML = match[1];
+      }
+
       // Surround ul with a li element, it's what Google Docs fails to do
       pasteElement.querySelectorAll("li + ol, li + ul").forEach((ul) => {
+        if (!cleanup) return;
+
         // Insert ul inside the previous li
         const li = ul.previousElementSibling;
         li.appendChild(ul);
@@ -45,6 +59,44 @@
       );
 
       let markdown = turndownService.turndown(html);
+
+      // Replace the links "https://www.google.com/url?q=https://gdprhub.eu/CJEU_-_C-673/17_-_Planet49&sa=D&source=editors&ust=1670951676346544&usg=AOvVaw0T2TTKekGyk9Vqc08febw1/" and keep the q parameter
+      markdown = markdown.replace(
+        /https:\/\/www\.google\.com\/url\?q=(https?:\/\/[^&]+)&[^\)]*/g,
+        "$1"
+      );
+
+      // Remove backslashes in [\[6\]] with [^6]
+      markdown = markdown.replace(/\[\\\[(\d+)\\\]\](\([^)]+\))?/g, "[^$1]");
+
+      // Get a list of all accurences of [^1] and [^2] etc.
+      const footnoteMatches = (
+        markdown.match(/\[\^(\d|[a-z0-9-_]+)+\]/g) || []
+      ).map((note) => note.match(/(\d|[a-z0-9-_]+)/)[0]);
+
+      // Rrplace last occurence of [^1] with [^1]:
+      footnoteMatches.forEach((match) => {
+        // Get all matches of [^1]
+        // const matches = markdown.match(new RegExp(`\\[\\^${match}\\]`, "g"));
+
+        // Replace only the last occurence of [^1] with [^1]: within markdown
+        markdown = markdown.replace(
+          new RegExp(`\\[\\^${match}\\]`, "g"),
+          (match, offset) => {
+            const index = markdown.indexOf(match, offset);
+            const lastIndex = markdown.lastIndexOf(match);
+
+            if (index === lastIndex) {
+              return match + ":";
+            }
+
+            return match;
+          }
+        );
+      });
+
+      // Replace [^1]:: with [^1]:
+      markdown = markdown.replace(/\[\^(\d|[a-z0-9-_])+\]:+/g, "[^$1]:");
 
       const allLines = markdown
         .split("\n")
@@ -68,7 +120,9 @@
           if (
             listRegex.test(line) &&
             firstBack === "" &&
-            listRegex.test(secondBack)
+            listRegex.test(secondBack) &&
+            // When the line is a horizontal rule * * * or ***
+            !/^\*\*/.test(secondBack.replace(/\s/g, ""))
           ) {
             // Remove last line
             lines.pop();

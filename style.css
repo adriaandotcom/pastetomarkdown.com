@@ -125,6 +125,7 @@ body.has-markdown main p {
 
 article {
   width: 700px;
+  max-width: 100%;
   margin: 0 auto;
   text-align: left;
 }
@@ -134,8 +135,21 @@ article h1 {
   margin-bottom: 2rem;
   align-self: center;
 }
+article img {
+  width: 700px;
+  max-width: 100%;
+  align-self: center;
+  border: 1px solid var(--text-color);
+  border-radius: 5px;
+}
 article p {
   margin-top: 0;
+}
+article ul {
+  margin-top: 1rem;
+}
+article li {
+  line-height: 2;
 }
 
 /* Logo */
