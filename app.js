@@ -1,10 +1,16 @@
 (() => {
   const pasteElement = document.getElementById("paste");
   const markdownElement = document.getElementById("markdown");
+  const commandElement = document.getElementById("cmd-key");
   const listRegex = /^(\s)*((\d+\.)(\s)|(-|\*)|(\[\^(\d|[a-z0-9-_])+\]:))/;
+  const isMac = navigator.userAgent.includes("Mac");
 
   const search = new URLSearchParams(location.search);
-  const cleanup = search.get("cleanup") !== "no";
+  const cleanup = !search.has("cleanup") || search.get("cleanup") === "yes";
+
+  if (commandElement && !isMac) {
+    commandElement.innerHTML = "CTRL";
+  }
 
   const turndownOptions = {
     headingStyle: "atx",
@@ -40,36 +46,27 @@
 
     const file = event.dataTransfer.files[0];
     const reader = new FileReader();
-    reader.onload = (event) => {
-      convert(event.target.result);
-    };
+    reader.onload = (event) => convert(event.target.result);
     reader.readAsText(file);
   });
 
-  // ondragenter
-  dropbox.addEventListener("dragenter", (event) => {
-    event.preventDefault();
-    event.stopPropagation();
+  dropbox.addEventListener("dragenter", () => {
     dropbox.classList.add("active");
   });
 
-  // ondragover
+  // Prevent default behavior (Prevent file from being opened)
   dropbox.addEventListener("dragover", (event) => {
     event.preventDefault();
     event.stopPropagation();
   });
 
-  // ondragleave
-  dropbox.addEventListener("dragleave", (event) => {
-    event.preventDefault();
-    event.stopPropagation();
+  dropbox.addEventListener("dragleave", () => {
     dropbox.classList.remove("active");
   });
 
   pasteElement.addEventListener("paste", async (event) => {
     setTimeout(() => {
-      const html = pasteElement.textContent.trim();
-      convert(html);
+      convert(pasteElement.textContent.trim());
     }, 250);
   });
 
@@ -93,17 +90,47 @@
       li.appendChild(ul);
     });
 
+    // Another bug in Google Docs, it fails to indent lists properly
+    pasteElement
+      .querySelectorAll(
+        'ul[class*="lst-"][class*="-0"] + ul[class*="lst-"][class*="-1"], ol[class*="lst-"][class*="-0"] + ol[class*="lst-"][class*="-1"]'
+      )
+      .forEach((currentUl) => {
+        if (!cleanup) return;
+
+        // Insert ul inside the previous li
+        const previousUl = currentUl.previousElementSibling;
+
+        // Get the last li of the previous ul
+        const li = previousUl.lastElementChild;
+
+        li.appendChild(currentUl);
+      });
+
     html = pasteElement.innerHTML.replace(
       /(<span style="[^"]*font-weight:[ ]*(?:bold|[6-9]00)[^"]*">)(.*?)(<\/span>)/gi,
       "$1<strong>$2</strong>$3"
     );
 
-    let markdown = turndownService.turndown(html);
+    const untouchedMarkdown = turndownService.turndown(html);
 
+    let markdown = untouchedMarkdown;
+
+    // https://www.google.com/url?q=https://www.simpleanalytics.com/blog/gdpr-consent-101?utm_source%3Dlala%26extra%3D123%23hash&sa=D&source=editors&ust=1671017642274294&usg=AOvVaw2EhgyBa4LXjOv8Y6oX7sPk
     // Replace the links "https://www.google.com/url?q=https://example.com&sa=D&source=...&ust=...&usg=.../" and keep the q parameter
     markdown = markdown.replace(
-      /https:\/\/www\.google\.com\/url\?q=(https?:\/\/[^&]+)&[^\)]*/g,
-      "$1"
+      /https:\/\/www\.google\.com\/url\?q=(https?:\/\/[^&]+)(&[^\)]*)?/g,
+      (fullUrl, redirectUrl) => {
+        if (!redirectUrl) return fullUrl;
+        if (!/\?/.test(redirectUrl)) return redirectUrl;
+
+        const [url, query] = redirectUrl.split("?");
+        const [search, hash] = decodeURIComponent(query).split("#");
+        const newUrl = new URL(url);
+        newUrl.search = new URLSearchParams(search);
+        if (hash) newUrl.hash = hash;
+        return newUrl.toString();
+      }
     );
 
     // Remove backslashes in [\[6\]] with [^6]
@@ -114,11 +141,8 @@
       markdown.match(/\[\^(\d|[a-z0-9-_]+)+\]/g) || []
     ).map((note) => note.match(/(\d|[a-z0-9-_]+)/)[0]);
 
-    // Rrplace last occurence of [^1] with [^1]:
+    // Replace last occurence of [^1] with [^1]:
     footnoteMatches.forEach((match) => {
-      // Get all matches of [^1]
-      // const matches = markdown.match(new RegExp(`\\[\\^${match}\\]`, "g"));
-
       // Replace only the last occurence of [^1] with [^1]: within markdown
       markdown = markdown.replace(
         new RegExp(`\\[\\^${match}\\]`, "g"),
@@ -138,7 +162,8 @@
     // Replace [^1]:: with [^1]:
     markdown = markdown.replace(/\[\^(\d|[a-z0-9-_])+\]:+/g, "[^$1]:");
 
-    const allLines = markdown
+    // This mostly fixed the double new lines between list items
+    markdown = markdown
       .split("\n")
       // Trim spaces on the right of the line
       .map((line) => line.replace(/\s+$/, ""))
@@ -169,9 +194,10 @@
         }
 
         return [...lines, line];
-      }, []);
+      }, [])
+      .join("\n");
 
-    markdown = cleanup ? allLines.join("\n") : markdown;
+    if (!cleanup) markdown = untouchedMarkdown;
     markdown = markdown.trim();
 
     markdownElement.style.display = "block";
@@ -183,8 +209,19 @@
     console.log("html:");
     console.log(html);
     console.log();
-    console.log("markdown:");
+
+    if (cleanup) console.log("markdown (clean):");
+    else console.log("markdown:");
     console.log(markdown);
+    console.log();
+
+    if (cleanup) {
+      console.log("markdown (raw):");
+      console.log(untouchedMarkdown);
+      console.log();
+    }
+
+    console.log("cleanup: " + (cleanup ? "yes" : "no"));
 
     document.body.classList.add("has-markdown");
   };

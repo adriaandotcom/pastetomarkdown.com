@@ -2,6 +2,7 @@
 :root {
   --background-color: #f5e8f5;
   --background-color-alt: #e6d1e6;
+  --border-color: #b2238a;
   --text-color: #440231;
   --link-color: #701958;
   --logo-color: #ff4f64;
@@ -10,6 +11,7 @@
   :root {
     --background-color: #370127;
     --background-color-alt: #440231;
+    --border-color: #d2b2b5;
     --text-color: #f0dddf;
     --link-color: #f0dddf;
     --logo-color: #d12c3f;
@@ -61,7 +63,7 @@ p {
 }
 textarea,
 input {
-  border: 1px solid var(--link-color);
+  border: 1px solid var(--border-color);
   border-radius: 5px;
 }
 a {
@@ -107,7 +109,7 @@ article {
 
 main p.drop {
   border-radius: 20px;
-  border: 2px dashed var(--link-color);
+  border: 2px dashed var(--border-color);
   padding: 40px;
   align-self: center;
 }
@@ -199,4 +201,18 @@ textarea#markdown {
   bottom: 0;
   right: 0;
   margin: 0.8rem 1rem;
+}
+
+kbd {
+  border: 2px solid var(--border-color);
+  box-shadow: 2px 2px var(--border-color);
+  font-size: 0.85em;
+  line-height: 0.85em;
+  display: inline-block;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  padding: 3px 5px;
+  white-space: nowrap;
+  margin-left: 1px;
+  margin-right: 3px;
 }
